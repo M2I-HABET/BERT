@@ -31,14 +31,11 @@
 #include <Arduino.h>
 #include <time.h>
 #include <Wire.h> //Needed for I2C to GNSS GPS
-#include <Adafruit_Arcada.h>
-#include <Adafruit_SPIFlash.h>
-// #include <SdFat.h>
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LSM6DS33.h>
 #include <Adafruit_LIS3MDL.h>
 #include <Adafruit_SHT31.h>
-#include <Adafruit_APDS9960.h>
+//#include <Adafruit_APDS9960.h>
 #include <Adafruit_BMP280.h>
 #include <SparkFun_u-blox_GNSS_Arduino_Library.h> //http://librarymanager/All#SparkFun_u-blox_GNSS
 #include <IridiumSBD.h> // Click here to get the library: http://librarymanager/All#IridiumSBDI2C
@@ -51,14 +48,14 @@
 // Define the two white LEDs on the front of the Clue Board
 #define WHITE_LED 43
 
-Adafruit_Arcada arcada;
+//Adafruit_Arcada arcada;
 Adafruit_LSM6DS33 lsm6ds33;
 Adafruit_LIS3MDL lis3mdl;
 Adafruit_SHT31 sht30;
-Adafruit_APDS9960 apds9960;
+//Adafruit_APDS9960 apds9960;
 Adafruit_BMP280 bmp280;
-extern Adafruit_FlashTransport_QSPI flashTransport;
-extern Adafruit_SPIFlash Arcada_QSPI_Flash;
+//extern Adafruit_FlashTransport_QSPI flashTransport;
+//extern Adafruit_SPIFlash Arcada_QSPI_Flash;
 SFE_UBLOX_GNSS myGNSS;
 
 //Setup the second serial port that talks to the RockBloc
@@ -70,7 +67,6 @@ IridiumSBD modem(IridiumSerial);
 
 
 uint32_t buttons, last_buttons;
-uint8_t j = 0;  // neopixel counter for rainbow
 
 // Check the timer callback, this function is called every millisecond!
 volatile uint16_t milliseconds = 0;
@@ -84,8 +80,8 @@ void timercallback() {
 }
 
 // Forward function declaration with default value for sea level
-float altitude(const int32_t press, const float seaLevel = 1013.25);
-float altitude(const int32_t press, const float seaLevel) {
+//float altitude(const int32_t press, const float seaLevel = 1013.25);
+//float altitude(const int32_t press, const float seaLevel) {
   /*!
   @brief     This converts a pressure measurement into a height in meters
   @details   The corrected sea-level pressure can be passed into the function if it is known,
@@ -95,10 +91,10 @@ float altitude(const int32_t press, const float seaLevel) {
   @param[in] seaLevel Sea-Level pressure in millibars
   @return    floating point altitude in meters.
   */
-static float Altitude;
-Altitude = 44330.0 * (1.0 - pow(((float)press / 100.0) / seaLevel, 0.1903));  // Convert into meters
-  return (Altitude);
-}  
+//static float Altitude;
+// Altitude = 44330.0 * (1.0 - pow(((float)press / 100.0) / seaLevel, 0.1903));  // Convert into meters
+//  return (Altitude);
+// }  
 
 /*
 typedef struct gpsdata {
@@ -119,19 +115,17 @@ typedef struct gpsdata {
 }
 */
 
-
 // file system object from SdFat
- FatFileSystem fatfs;
+ //FatFileSystem fatfs;
 
 // Configuration for the datalogging file:
-#define FILE_NAME      "data.csv"
+//#define FILE_NAME      "data.csv"
 
 unsigned long myTime;
 unsigned long lastTime = 0; //Simple local timer. Limits amount if I2C traffic to u-blox module.
 unsigned long lastTime2 = 0; //Simple local timer. Limits amount if I2C traffic to u-blox module.
 
 void setup() {
-  
   Serial.begin(115200);
   delay(500);
   Serial.println("Backup Emergency Recovery Transmitter (BERT)");
@@ -145,110 +139,38 @@ void setup() {
   Wire.begin();
   Serial.println("Initializing I2C Bus....OK");
 
-  Serial.print("Booting up Arcada...");
-  if (!arcada.arcadaBegin()) {
-    Serial.print("Failed to begin");
-    while (1);
-  }
-  Serial.println("OK");
-  arcada.displayBegin();
-  Serial.print("Setting up Display...");
-
-  for (int i=0; i<250; i+=10) {
-    arcada.setBacklight(i);
-    delay(1);
-  }
-
-  arcada.display->setCursor(0, 0);
-  arcada.display->setTextWrap(true);
-  arcada.display->setTextSize(2);
-  Serial.println("OK");
-  
-  /********** Setup QSPI Flash Memory */
-  Serial.print("Setting up Filesystem...");
-
-  // Initialize flash library and check its chip ID.
-  if (!Arcada_QSPI_Flash.begin()) {
-    Serial.println("Error, failed to initialize flash chip!");
-    while(1);
-  }
-  Serial.println("Flash chip JEDEC ID: 0x"); Serial.println(Arcada_QSPI_Flash.getJEDECID(), HEX);
-  Serial.print("Mounting Filesystem...");
-
-  // First call begin to mount the filesystem.  Check that it returns true
-  // to make sure the filesystem was mounted.
-  if (!fatfs.begin(&Arcada_QSPI_Flash)) {
-    Serial.println("Error, failed to mount newly formatted filesystem!");
-    Serial.println("Was the flash chip formatted with the fatfs_format example?");
-    while(1);
-  }
-  Serial.println("Mounted filesystem!");
-  
-  arcada.display->setTextColor(ARCADA_WHITE);
-  arcada.display->println("Getting a clue...");
-  arcada.display->setTextColor(ARCADA_WHITE);
-  arcada.display->println("Sensors Found: ");
-
- 
-  Serial.print("Checking APDS...");
-  if (!apds9960.begin()) {
-    Serial.println("No APDS9960 found");
-    arcada.display->setTextColor(ARCADA_RED);
-  } else {
-    Serial.println("**APDS9960 OK!");
-    arcada.display->setTextColor(ARCADA_GREEN);
-    apds9960.enableColor(true);
-  }
-  arcada.display->print("APDS9960 ");
-
-
   /********** Check LSM6DS33 */
   Serial.print("Checking LSM6DS33...");
   if (!lsm6ds33.begin_I2C()) {
     Serial.println("No LSM6DS33 found");
-    arcada.display->setTextColor(ARCADA_RED);
   } else {
     Serial.println("**LSM6DS33 OK!");
-    arcada.display->setTextColor(ARCADA_GREEN);
   }
-  arcada.display->println("LSM6DS33 ");
   
   /********** Check LIS3MDL */
   Serial.print("Checking LIS3MDL...");
   if (!lis3mdl.begin_I2C()) {
     Serial.println("No LIS3MDL found");
-    arcada.display->setTextColor(ARCADA_RED);
   } else {
     Serial.println("**LIS3MDL OK!");
-    arcada.display->setTextColor(ARCADA_GREEN);
   }
-  arcada.display->print("LIS3MDL ");
 
   /********** Check SHT3x */
   Serial.print("Checking SHT30...");
   if (!sht30.begin(0x44)) {
     Serial.println("No SHT30 found");
-    arcada.display->setTextColor(ARCADA_RED);
   } else {
     Serial.println("**SHT30 OK!");
-    arcada.display->setTextColor(ARCADA_GREEN);
   }
-  arcada.display->print("SHT30 ");
 
   /********** Check BMP280 */
   Serial.print("Checking BPM280...");
   if (!bmp280.begin()) {
     Serial.println("No BMP280 found");
-    arcada.display->setTextColor(ARCADA_RED);
-  } else {
     Serial.println("**BMP280 OK!");
-    arcada.display->setTextColor(ARCADA_GREEN);
   }
-  arcada.display->println("BMP280");
 
   buttons = last_buttons = 0;
-  arcada.timerCallback(1000, timercallback);
-  arcada.display->setTextWrap(false);
 
   Serial.print("Initializing GPS Sensor....");
 
@@ -256,12 +178,9 @@ void setup() {
   {
     Serial.println("FAILED");
     Serial.println(F("u-blox GNSS not detected at default I2C address. Please check wiring. Freezing."));
-    arcada.display->setTextColor(ARCADA_RED);
     while (1);
   }
   else{
-    arcada.display->setTextColor(ARCADA_GREEN);
-    arcada.display->println("NEO-N9M GPS");
     myGNSS.setI2COutput(COM_TYPE_UBX); //Set the I2C port to output UBX only (turn off NMEA noise)
     myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
     Serial.println("OK");
@@ -282,7 +201,6 @@ void setup() {
   {
     Serial.print(F("SatComm: error "));
     Serial.println(err);
-    arcada.display->setTextColor(ARCADA_RED);
     if (err == ISBD_NO_MODEM_DETECTED)
       Serial.println(F("No modem detected: check wiring."));
     return;
@@ -330,22 +248,18 @@ void setup() {
     Serial.print(F("On a scale of 0 to 5, signal quality is currently "));
     Serial.print(signalQuality);
     Serial.println(F("."));
-    arcada.display->setTextColor(ARCADA_GREEN);
-    arcada.display->println("Sat Radio");
   }
 
   Serial.println("Setup Process Comlplete...Booting BERTOS");
-  arcada.display->setTextColor(ARCADA_GREEN);
-  arcada.display->println("Bootup Complete!");
   delay(5000);
-  arcada.display->fillScreen(ARCADA_BLACK);
-  
+
 }
+
 /*=====================================================
 * Main Loop
 =========================================================*/
-void loop() {
 
+void loop() {
   float temp, pres, humidity;
   long GPSLat, GPSLon,GPSAlt;
   long altitudeMSL;
@@ -389,8 +303,9 @@ void loop() {
 
     // Open the datalogging file for writing.  The FILE_WRITE mode will open
   // the file for appending, i.e. it will add new data to the end of the file.
-  File dataFile = fatfs.open(FILE_NAME, FILE_WRITE);
+  //File dataFile = fatfs.open(FILE_NAME, FILE_WRITE);
   // Check that the file opened successfully and write a line to it.
+  /*
   if (dataFile) {
     dataFile.print(temp,2);
     dataFile.print(",");
@@ -409,15 +324,18 @@ void loop() {
     // Finally close the file when done writing.  This is smart to do to make
     // sure all the data is written to the file.
     dataFile.close();
+    
     Serial.println("Wrote new measurement to data file!");
   }
   else {
     Serial.println("Failed to open data file for writing!");
   }
-
+*/
   /*
    * Update the Arcada Display
    */
+
+  /*
 
     arcada.display->fillScreen(ARCADA_BLACK);
     arcada.display->setTextColor(ARCADA_WHITE, ARCADA_BLACK);
@@ -449,11 +367,12 @@ void loop() {
     arcada.display->print("alt: ");
     arcada.display->print(GPSAlt);
     arcada.display->println("         ");
+    */
 
     /*
      * Print to Serial Output
     TODO: Add under DEBUG statement
-  
+  */
     Serial.print(F("Temp: "));
     Serial.print(temp);
   
@@ -464,15 +383,14 @@ void loop() {
     Serial.println(humidity);
   
     Serial.print("Lat: ");
-    Serial.print(latitude);
+    Serial.print(GPSLat);
     Serial.print(" ");
     Serial.print("Long: ");
-    Serial.print(longitude);
+    Serial.print(GPSLon);
     //Serial.print(" (degrees * 10^-7)");
     
-  
     Serial.print(" Alt: ");
-    Serial.print(altitude);
+    Serial.print(GPSAlt);
     Serial.print(" (mm)");
   
     Serial.print(" AltMSL: ");
@@ -484,7 +402,6 @@ void loop() {
   
     Serial.print(" Fix: ");
     Serial.println(fixType);
-    */
   
  }
 
