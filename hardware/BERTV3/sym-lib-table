@@ -1,0 +1,3 @@
+(sym_lib_table
+  (lib (name Microbit)(type Legacy)(uri C:/GitHub/HES/BERT/HW/BERTV3/parts/lib_microbit_connector/lib_microbit_connector.lib)(options "")(descr ""))
+)
