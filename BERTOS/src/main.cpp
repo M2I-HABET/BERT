@@ -29,8 +29,11 @@
  * RockBlock needs 5V DC
  * *********************************************/
 #include <Arduino.h>
+#include <Adafruit_Arcada.h>
 #include <time.h>
 #include <Wire.h> //Needed for I2C to GNSS GPS
+#include <Adafruit_GFX.h>    // Core graphics library
+#include <Adafruit_ST7789.h> // Hardware-specific library for ST7789
 #include <Adafruit_Sensor.h>
 #include <Adafruit_LSM6DS33.h>
 #include <Adafruit_LIS3MDL.h>
@@ -48,7 +51,7 @@
 // Define the two white LEDs on the front of the Clue Board
 #define WHITE_LED 43
 
-//Adafruit_Arcada arcada;
+Adafruit_Arcada arcada;
 Adafruit_LSM6DS33 lsm6ds33;
 Adafruit_LIS3MDL lis3mdl;
 Adafruit_SHT31 sht30;
@@ -266,10 +269,10 @@ void loop() {
   byte SIV;
   int Year, Month, Day, Hour, Minute, Second;
   byte fixType;
-  byte RTK;
   int signalQuality = -1;
   int err;
   char IMEI[16];
+  int RTK;
 
 /*!
   @brief    1 Second Routine
