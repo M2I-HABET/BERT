@@ -30,6 +30,7 @@
  * *********************************************/
 #include <Arduino.h>
 #include <Adafruit_Arcada.h>
+#include <Adafruit_SPIFlash.h>
 #include <time.h>
 #include <Wire.h> //Needed for I2C to GNSS GPS
 #include <Adafruit_GFX.h>    // Core graphics library
@@ -57,8 +58,8 @@ Adafruit_LIS3MDL lis3mdl;
 Adafruit_SHT31 sht30;
 //Adafruit_APDS9960 apds9960;
 Adafruit_BMP280 bmp280;
-//extern Adafruit_FlashTransport_QSPI flashTransport;
-//extern Adafruit_SPIFlash Arcada_QSPI_Flash;
+extern Adafruit_FlashTransport_QSPI flashTransport;
+extern Adafruit_SPIFlash Arcada_QSPI_Flash;
 SFE_UBLOX_GNSS myGNSS;
 
 //Setup the second serial port that talks to the RockBloc
@@ -119,10 +120,10 @@ typedef struct gpsdata {
 */
 
 // file system object from SdFat
- //FatFileSystem fatfs;
+FatFileSystem fatfs;
 
 // Configuration for the datalogging file:
-//#define FILE_NAME      "data.csv"
+#define FILE_NAME      "FDR.csv"
 
 unsigned long myTime;
 unsigned long lastTime = 0; //Simple local timer. Limits amount if I2C traffic to u-blox module.
@@ -132,48 +133,108 @@ void setup() {
   Serial.begin(115200);
   delay(500);
   Serial.println("Backup Emergency Recovery Transmitter (BERT)");
-  Serial.println("===========================================");
+  Serial.println("============================================");
   Serial.println(" HW Rev. 3.0 | FW Rev. 1.5");
-  Serial.println("===========================================");
-  delay(5000);
+  Serial.println("============================================");
+  delay(3000);
   pinMode(WHITE_LED, OUTPUT);
   digitalWrite(WHITE_LED, LOW);
   
   Wire.begin();
   Serial.println("Initializing I2C Bus....OK");
+  
+  Serial.print("Booting up Arcada...");
+  if (!arcada.arcadaBegin()) {
+    Serial.println("Failed to start Arcada!");
+    while (1);
+  }
+  Serial.println("OK");
+  arcada.displayBegin();
+  Serial.print("Setting up Display...");
 
-  /********** Check LSM6DS33 */
+  for (int i=0; i<250; i+=10) {
+    arcada.setBacklight(i);
+    delay(1);
+  }
+
+  arcada.display->setCursor(0, 0);
+  arcada.display->setTextWrap(true);
+  arcada.display->setTextSize(2);
+  Serial.println("OK");
+
+  /********** Setup QSPI Flash Memory */
+  Serial.print("Setting up Filesystem...");
+
+  // Initialize flash library and check its chip ID.
+  if (!Arcada_QSPI_Flash.begin()) {
+    Serial.println("Error, failed to initialize flash chip!");
+    while(1);
+  }
+  Serial.println("Flash chip JEDEC ID: 0x"); Serial.println(Arcada_QSPI_Flash.getJEDECID(), HEX);
+  Serial.print("Mounting Filesystem...");
+
+  // First call begin to mount the filesystem.  Check that it returns true
+  // to make sure the filesystem was mounted.
+  if (!fatfs.begin(&Arcada_QSPI_Flash)) {
+    Serial.println("Error, failed to mount newly formatted filesystem!");
+    Serial.println("Was the flash chip formatted with the fatfs_format example?");
+    while(1);
+  }
+  Serial.println("Mounted filesystem!");
+
+  arcada.display->setTextColor(ARCADA_WHITE);
+  arcada.display->println("Getting a clue...");
+  arcada.display->setTextColor(ARCADA_WHITE);
+  arcada.display->println("Sensors Found: ");
+
+
+/********** Check LSM6DS33 */
   Serial.print("Checking LSM6DS33...");
   if (!lsm6ds33.begin_I2C()) {
     Serial.println("No LSM6DS33 found");
+    arcada.display->setTextColor(ARCADA_RED);
   } else {
     Serial.println("**LSM6DS33 OK!");
+    arcada.display->setTextColor(ARCADA_GREEN);
   }
-  
+  arcada.display->println("LSM6DS33 ");
+
   /********** Check LIS3MDL */
   Serial.print("Checking LIS3MDL...");
   if (!lis3mdl.begin_I2C()) {
     Serial.println("No LIS3MDL found");
+    arcada.display->setTextColor(ARCADA_RED);
   } else {
     Serial.println("**LIS3MDL OK!");
+    arcada.display->setTextColor(ARCADA_GREEN);
   }
+  arcada.display->print("LIS3MDL ");
 
   /********** Check SHT3x */
   Serial.print("Checking SHT30...");
   if (!sht30.begin(0x44)) {
     Serial.println("No SHT30 found");
+    arcada.display->setTextColor(ARCADA_RED);
   } else {
     Serial.println("**SHT30 OK!");
+    arcada.display->setTextColor(ARCADA_GREEN);
   }
+  arcada.display->print("SHT30 ");
 
   /********** Check BMP280 */
   Serial.print("Checking BPM280...");
   if (!bmp280.begin()) {
     Serial.println("No BMP280 found");
+    arcada.display->setTextColor(ARCADA_RED);
+  } else {
     Serial.println("**BMP280 OK!");
+    arcada.display->setTextColor(ARCADA_GREEN);
   }
+  arcada.display->println("BMP280");
 
   buttons = last_buttons = 0;
+  arcada.timerCallback(1000, timercallback);
+  arcada.display->setTextWrap(false);
 
   Serial.print("Initializing GPS Sensor....");
 
@@ -181,15 +242,18 @@ void setup() {
   {
     Serial.println("FAILED");
     Serial.println(F("u-blox GNSS not detected at default I2C address. Please check wiring. Freezing."));
+    arcada.display->setTextColor(ARCADA_RED);
     while (1);
   }
   else{
+    arcada.display->setTextColor(ARCADA_GREEN);
+    arcada.display->println("NEO-N9M GPS");
     myGNSS.setI2COutput(COM_TYPE_UBX); //Set the I2C port to output UBX only (turn off NMEA noise)
     myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
     Serial.println("OK");
   }
-  
- 
+
+
   Serial.print("Initializing RockBloc Sat Modem");
   int signalQuality = -1;
   int err;
@@ -204,6 +268,7 @@ void setup() {
   {
     Serial.print(F("SatComm: error "));
     Serial.println(err);
+    arcada.display->setTextColor(ARCADA_RED);
     if (err == ISBD_NO_MODEM_DETECTED)
       Serial.println(F("No modem detected: check wiring."));
     return;
@@ -223,7 +288,7 @@ void setup() {
     Serial.print(F("Firmware Version is "));
     Serial.print(version);
     Serial.println(F("."));
-  
+
     // Example: Print the IMEI
     char IMEI[16];
     err = modem.getIMEI(IMEI, sizeof(IMEI));
@@ -247,14 +312,19 @@ void setup() {
       Serial.println(err);
       return;
     }
-  
+
     Serial.print(F("On a scale of 0 to 5, signal quality is currently "));
     Serial.print(signalQuality);
     Serial.println(F("."));
+    arcada.display->setTextColor(ARCADA_GREEN);
+    arcada.display->println("Sat Radio");
   }
 
   Serial.println("Setup Process Comlplete...Booting BERTOS");
+  arcada.display->setTextColor(ARCADA_GREEN);
+  arcada.display->println("Bootup Complete!");
   delay(5000);
+  arcada.display->fillScreen(ARCADA_BLACK);
 
 }
 
@@ -285,7 +355,7 @@ void loop() {
   
   if (millis() - lastTime > 1000)
   {
-    Serial.println("In the 1 sec function");
+    // Serial.println("In the 1 sec function");
     lastTime = millis(); //Update the timer
     temp = bmp280.readTemperature();
     pres = bmp280.readPressure()/100;
@@ -304,11 +374,11 @@ void loop() {
     Second = myGNSS.getSecond();
     fixType = myGNSS.getFixType();
 
-    // Open the datalogging file for writing.  The FILE_WRITE mode will open
+  // Open the datalogging file for writing.  The FILE_WRITE mode will open
   // the file for appending, i.e. it will add new data to the end of the file.
-  //File dataFile = fatfs.open(FILE_NAME, FILE_WRITE);
+  File dataFile = fatfs.open(FILE_NAME, FILE_WRITE);
+  
   // Check that the file opened successfully and write a line to it.
-  /*
   if (dataFile) {
     dataFile.print(temp,2);
     dataFile.print(",");
@@ -333,12 +403,10 @@ void loop() {
   else {
     Serial.println("Failed to open data file for writing!");
   }
-*/
+
   /*
    * Update the Arcada Display
    */
-
-  /*
 
     arcada.display->fillScreen(ARCADA_BLACK);
     arcada.display->setTextColor(ARCADA_WHITE, ARCADA_BLACK);
@@ -370,7 +438,7 @@ void loop() {
     arcada.display->print("alt: ");
     arcada.display->print(GPSAlt);
     arcada.display->println("         ");
-    */
+    
 
     /*
      * Print to Serial Output
@@ -419,7 +487,7 @@ void loop() {
 
   if (millis() - lastTime2 > 300000)
   {
-    Serial.println("In the 120 sec function");
+    // Serial.println("In the 300 sec function");
     lastTime2 = millis(); //Update the timer
     // Example: Print the IMEI
     err = modem.getIMEI(IMEI, sizeof(IMEI));
