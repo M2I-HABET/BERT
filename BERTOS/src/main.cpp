@@ -249,6 +249,32 @@ void setup() {
     arcada.display->setTextColor(ARCADA_GREEN);
     arcada.display->println("NEO-N9M GPS");
     myGNSS.setI2COutput(COM_TYPE_UBX); //Set the I2C port to output UBX only (turn off NMEA noise)
+    // If we are going to change the dynamic platform model, let's do it here.
+    // Possible values are:
+    // PORTABLE, STATIONARY, PEDESTRIAN, AUTOMOTIVE, SEA, AIRBORNE1g, AIRBORNE2g, AIRBORNE4g, WRIST, BIKE
+
+    if (myGNSS.setDynamicModel(DYN_MODEL_AIRBORNE1g) == false) // Set the dynamic model to PORTABLE
+    {
+      Serial.println(F("*** Warning: setDynamicModel failed ***"));
+    }
+    else
+    {
+      Serial.println(F("Dynamic platform model changed successfully!"));
+    }
+
+    // Let's read the new dynamic model to see if it worked
+    uint8_t newDynamicModel = myGNSS.getDynamicModel();
+    if (newDynamicModel == DYN_MODEL_UNKNOWN)
+    {
+      Serial.println(F("*** Warning: getDynamicModel failed ***"));
+    }
+    else
+    {
+      Serial.print(F("The new dynamic model is: "));
+      Serial.println(newDynamicModel);
+    }
+
+    //myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_NAVCONF); //Uncomment this line to save only the NAV settings to flash and BBR
     myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
     Serial.println("OK");
   }
