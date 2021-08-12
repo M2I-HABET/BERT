@@ -1,7 +1,7 @@
 /*
  * Backup Emergency Recovery Transmitter
  * HW Version - 3.0
- * FW Version - 1.5
+ * FW Version - 1.6
  * Matthew E. Nelson
  */
 
@@ -30,6 +30,7 @@
  * *********************************************/
 #include <Arduino.h>
 #include <Adafruit_Arcada.h>
+#include <Adafruit_SleepyDog.h>
 #include <Adafruit_SPIFlash.h>
 #include <time.h>
 #include <Wire.h> //Needed for I2C to GNSS GPS
@@ -125,7 +126,7 @@ FatFileSystem fatfs;
 // Configuration for the datalogging file:
 #define FILE_NAME      "FDR.csv"
 
-unsigned long myTime;
+unsigned long myTime = 0;
 unsigned long lastTime = 0; //Simple local timer. Limits amount if I2C traffic to u-blox module.
 unsigned long lastTime2 = 0; //Simple local timer. Limits amount if I2C traffic to u-blox module.
 
@@ -134,7 +135,7 @@ void setup() {
   delay(500);
   Serial.println("Backup Emergency Recovery Transmitter (BERT)");
   Serial.println("============================================");
-  Serial.println(" HW Rev. 3.0 | FW Rev. 1.5");
+  Serial.println(" HW Rev. 3.0 | FW Rev. 1.6");
   Serial.println("============================================");
   delay(3000);
   pinMode(WHITE_LED, OUTPUT);
@@ -142,6 +143,17 @@ void setup() {
   
   Wire.begin();
   Serial.println("Initializing I2C Bus....OK");
+
+  Serial.println("Setting up WatchDog...");
+  int countdownMS = Watchdog.enable(180000);
+  Serial.print("Enabled the watchdog with max countdown of ");
+  Serial.print(countdownMS, DEC);
+  Serial.println(" milliseconds!");
+  Serial.println();
+  #ifndef NRF52_SERIES // cannot disable nRF's WDT
+    // Disable the watchdog entirely by calling Watchdog.disable();
+    Watchdog.disable();
+  #endif 
   
   Serial.print("Booting up Arcada...");
   if (!arcada.arcadaBegin()) {
@@ -156,10 +168,6 @@ void setup() {
     arcada.setBacklight(i);
     delay(1);
   }
-
-  arcada.display->setCursor(0, 0);
-  arcada.display->setTextWrap(true);
-  arcada.display->setTextSize(2);
   Serial.println("OK");
 
   /********** Setup QSPI Flash Memory */
@@ -182,8 +190,12 @@ void setup() {
   }
   Serial.println("Mounted filesystem!");
 
-  arcada.display->setTextColor(ARCADA_WHITE);
-  arcada.display->println("Getting a clue...");
+  arcada.display->setCursor(0, 0);
+  arcada.display->setTextWrap(true);
+  arcada.display->setTextSize(2);
+  arcada.display->setTextColor(ARCADA_GREEN);
+  arcada.display->println("BERTOS Booting...");
+  arcada.display->println("FW Rev: 1.6");
   arcada.display->setTextColor(ARCADA_WHITE);
   arcada.display->println("Sensors Found: ");
 
@@ -252,6 +264,7 @@ void setup() {
     // If we are going to change the dynamic platform model, let's do it here.
     // Possible values are:
     // PORTABLE, STATIONARY, PEDESTRIAN, AUTOMOTIVE, SEA, AIRBORNE1g, AIRBORNE2g, AIRBORNE4g, WRIST, BIKE
+    // For High Altitude Balloon applications, we need this set to AIRBORNE, either 1g or 2g should be fine.
 
     if (myGNSS.setDynamicModel(DYN_MODEL_AIRBORNE1g) == false) // Set the dynamic model to PORTABLE
     {
@@ -359,16 +372,16 @@ void setup() {
 =========================================================*/
 
 void loop() {
-  float temp, pres, humidity;
-  long GPSLat, GPSLon,GPSAlt;
-  long altitudeMSL;
-  byte SIV;
-  int Year, Month, Day, Hour, Minute, Second;
-  byte fixType;
+  //float temp, pres, humidity;
+  //long GPSLat, GPSLon,GPSAlt;
+  //long altitudeMSL;
+  //byte SIV;
+  // uint16_t Year=0, Month=0, Day=0, Hour=0, Minute=0, Second = 0;
+  //byte fixType;
   int signalQuality = -1;
-  int err;
+  //int err;
   char IMEI[16];
-  int RTK;
+  // int RTK;
 
 /*!
   @brief    1 Second Routine
@@ -383,22 +396,22 @@ void loop() {
   {
     // Serial.println("In the 1 sec function");
     lastTime = millis(); //Update the timer
-    temp = bmp280.readTemperature();
-    pres = bmp280.readPressure()/100;
-    humidity = sht30.readHumidity();
-    GPSLat = myGNSS.getLatitude();
-    GPSLon = myGNSS.getLongitude();
-    GPSAlt = myGNSS.getAltitude();
-    altitudeMSL = myGNSS.getAltitudeMSL();
+    float temp = bmp280.readTemperature();
+    float pres = bmp280.readPressure()/100;
+    float humidity = sht30.readHumidity();
+    long GPSLat = myGNSS.getLatitude();
+    long GPSLon = myGNSS.getLongitude();
+    long GPSAlt = myGNSS.getAltitude();
+    long altitudeMSL = myGNSS.getAltitudeMSL();
     
-    SIV = myGNSS.getSIV();
-    Year = myGNSS.getYear();
-    Month = myGNSS.getMonth();
-    Day = myGNSS.getDay();
-    Hour = myGNSS.getHour();
-    Minute = myGNSS.getMinute();
-    Second = myGNSS.getSecond();
-    fixType = myGNSS.getFixType();
+    byte SIV = myGNSS.getSIV();
+    uint16_t Year = myGNSS.getYear();
+    uint16_t Month = myGNSS.getMonth();
+    uint16_t Day = myGNSS.getDay();
+    uint16_t Hour = myGNSS.getHour();
+    uint16_t Minute = myGNSS.getMinute();
+    uint16_t Second = myGNSS.getSecond();
+    byte fixType = myGNSS.getFixType();
 
   // Open the datalogging file for writing.  The FILE_WRITE mode will open
   // the file for appending, i.e. it will add new data to the end of the file.
@@ -499,11 +512,13 @@ void loop() {
   
     Serial.print(" Fix: ");
     Serial.println(fixType);
+    //Reset the Watchdog
+    Watchdog.reset();
   
  }
 
  /*!
-  @brief    5 min interval
+  @brief    3 min interval
   @details  Take the data collected and transmit via the SatComm
             It takes to send data, to the Iridium network and
             unfortunatly this is blocking code. Data is sent as 
@@ -511,40 +526,43 @@ void loop() {
   @return   void
 */
 
-  if (millis() - lastTime2 > 300000)
+  if (millis() - lastTime2 > 180000)
   {
+    Watchdog.reset();
+    arcada.pixels.setPixelColor(0,255,0,0);
+    arcada.pixels.show();
     // Serial.println("In the 300 sec function");
     lastTime2 = millis(); //Update the timer
     // Example: Print the IMEI
-    err = modem.getIMEI(IMEI, sizeof(IMEI));
-    if (err != ISBD_SUCCESS)
-    {
-       Serial.print(F("getIMEI failed: error "));
-       Serial.println(err);
-       return;
-    }
+    //int err = modem.getIMEI(IMEI, sizeof(IMEI));
+    //if (err != ISBD_SUCCESS)
+    //{
+    //   Serial.print(F("getIMEI failed: error "));
+    //   Serial.println(err);
+    //   return;
+    //}
     Serial.print(F("IMEI is "));
     Serial.print(IMEI);
     Serial.println(F("."));
 
-    temp = bmp280.readTemperature();
-    pres = bmp280.readPressure()/100;
-    humidity = sht30.readHumidity();
-    GPSLat = myGNSS.getLatitude();
-    GPSLon = myGNSS.getLongitude();
-    GPSAlt = myGNSS.getAltitude();
-    altitudeMSL = myGNSS.getAltitudeMSL();
+    float temp = bmp280.readTemperature();
+    float pres = bmp280.readPressure()/100;
+    float humidity = sht30.readHumidity();
+    long GPSLat = myGNSS.getLatitude();
+    long GPSLon = myGNSS.getLongitude();
+    long GPSAlt = myGNSS.getAltitude();
+    long altitudeMSL = myGNSS.getAltitudeMSL();
     
-    SIV = myGNSS.getSIV();
-    Year = myGNSS.getYear();
-    Month = myGNSS.getMonth();
-    Day = myGNSS.getDay();
-    Hour = myGNSS.getHour();
-    Minute = myGNSS.getMinute();
-    Second = myGNSS.getSecond();
-    fixType = myGNSS.getFixType();
+    byte SIV = myGNSS.getSIV();
+    uint16_t Year = myGNSS.getYear();
+    uint16_t Month = myGNSS.getMonth();
+    uint16_t Day = myGNSS.getDay();
+    uint16_t Hour = myGNSS.getHour();
+    uint16_t Minute = myGNSS.getMinute();
+    uint16_t Second = myGNSS.getSecond();
+    byte fixType = myGNSS.getFixType();
 
-    RTK = myGNSS.getCarrierSolutionType();
+    //RTK = myGNSS.getCarrierSolutionType();
 
     // Get Satellite Signal Quality
     /*
@@ -552,7 +570,7 @@ void loop() {
     else if (RTK == 1) RTXType="High precision floating fix";
     else if (RTK == 2) RTXType="High precision fix";
     */
-    err = modem.getSignalQuality(signalQuality);
+    //err = modem.getSignalQuality(signalQuality);
     //Can't have more than 340 bytes for transmission
     char telem_sat[300];
     //String telem = String("B,") + String(GPSLat) + ',' + String(GPSLon) + ',' + String(GPSAlt) + ',' + String(fixType) + ',' + String(temp,2) + ',' + String(pres,2) + ',' + String(humidity,2) + ',' + String(signalQuality);
@@ -563,7 +581,7 @@ void loop() {
     // Send the message
     Serial.print(F("Sending Data: "));
     Serial.println(telem_sat);
-    err = modem.sendSBDText(telem_sat);
+    int err = modem.sendSBDText(telem_sat);
     if (err != ISBD_SUCCESS)
     {
       Serial.print(F("sendSBDText failed: error "));
@@ -586,6 +604,10 @@ void loop() {
       Serial.println(err);
     }
     Serial.println(F("Done!"));
+    arcada.pixels.setPixelColor(0,0,0,0);
+    arcada.pixels.show();
+    //Reset the Watchdog
+    Watchdog.reset();
     
   }
 }
