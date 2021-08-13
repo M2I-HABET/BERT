@@ -124,7 +124,7 @@ typedef struct gpsdata {
 FatFileSystem fatfs;
 
 // Configuration for the datalogging file:
-#define FILE_NAME      "FDR.csv"
+#define FILE_NAME  "FDR.csv"
 
 unsigned long myTime = 0;
 unsigned long lastTime = 0; //Simple local timer. Limits amount if I2C traffic to u-blox module.
@@ -132,7 +132,7 @@ unsigned long lastTime2 = 0; //Simple local timer. Limits amount if I2C traffic 
 
 void setup() {
   Serial.begin(115200);
-  delay(500);
+  delay(1000);
   Serial.println("Backup Emergency Recovery Transmitter (BERT)");
   Serial.println("============================================");
   Serial.println(" HW Rev. 3.0 | FW Rev. 1.6");
@@ -541,10 +541,10 @@ void loop() {
     //   Serial.println(err);
     //   return;
     //}
-    Serial.print(F("IMEI is "));
-    Serial.print(IMEI);
-    Serial.println(F("."));
-
+    //Serial.print(F("IMEI is "));
+    //Serial.print(IMEI);
+    //Serial.println(F("."));
+    Serial.println("Collecting Data...");
     float temp = bmp280.readTemperature();
     float pres = bmp280.readPressure()/100;
     float humidity = sht30.readHumidity();
