@@ -403,6 +403,25 @@ void loop() {
     long GPSLon = myGNSS.getLongitude();
     long GPSAlt = myGNSS.getAltitude();
     long altitudeMSL = myGNSS.getAltitudeMSL();
+
+    sensors_event_t accel;
+    lsm6ds33.getEvent(&accel, NULL, NULL);
+    float accelx = accel.acceleration.x;
+    float accely = accel.acceleration.y;
+    float accelz = accel.acceleration.z;
+
+    sensors_event_t gyro;
+    lsm6ds33.getEvent(NULL, &gyro, NULL);
+    float gyrox = gyro.gyro.x * SENSORS_RADS_TO_DPS;
+    float gyroy = gyro.gyro.y * SENSORS_RADS_TO_DPS;
+    float gyroz = gyro.gyro.z * SENSORS_RADS_TO_DPS;
+
+    sensors_event_t mag;
+    lis3mdl.getEvent(&mag);
+    float magx = mag.magnetic.x;
+    float magy = mag.magnetic.y;
+    float magz = mag.magnetic.z;
+    
     
     byte SIV = myGNSS.getSIV();
     uint16_t Year = myGNSS.getYear();
@@ -432,6 +451,24 @@ void loop() {
     dataFile.print(altitudeMSL);
     dataFile.print(",");
     dataFile.print(fixType);
+    dataFile.print(",");
+    dataFile.print(accelx);
+    dataFile.print(",");
+    dataFile.print(accely);
+    dataFile.print(",");
+    dataFile.print(accelz);
+    dataFile.print(",");
+    dataFile.print(gyrox);
+    dataFile.print(",");
+    dataFile.print(gyroy);
+    dataFile.print(",");
+    dataFile.print(gyroz);
+    dataFile.print(",");
+    dataFile.print(magx);
+    dataFile.print(",");
+    dataFile.print(magy);
+    dataFile.print(",");
+    dataFile.print(magz);
     dataFile.println();
     // Finally close the file when done writing.  This is smart to do to make
     // sure all the data is written to the file.
