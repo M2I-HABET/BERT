@@ -124,7 +124,7 @@ typedef struct gpsdata {
 FatFileSystem fatfs;
 
 // Configuration for the datalogging file:
-#define FILE_NAME  "FDR.csv"
+#define FILE_NAME  "BERT_FDR.csv"
 
 unsigned long myTime = 0;
 unsigned long lastTime = 0; //Simple local timer. Limits amount if I2C traffic to u-blox module.
@@ -135,7 +135,7 @@ void setup() {
   delay(1000);
   Serial.println("Backup Emergency Recovery Transmitter (BERT)");
   Serial.println("============================================");
-  Serial.println(" HW Rev. 3.0 | FW Rev. 1.6");
+  Serial.println(" HW Rev. 3.0 | FW Rev. 1.7");
   Serial.println("============================================");
   delay(3000);
   pinMode(WHITE_LED, OUTPUT);
@@ -195,7 +195,7 @@ void setup() {
   arcada.display->setTextSize(2);
   arcada.display->setTextColor(ARCADA_GREEN);
   arcada.display->println("BERTOS Booting...");
-  arcada.display->println("FW Rev: 1.6");
+  arcada.display->println("FW Rev: 1.7");
   arcada.display->setTextColor(ARCADA_WHITE);
   arcada.display->println("Sensors Found: ");
 
