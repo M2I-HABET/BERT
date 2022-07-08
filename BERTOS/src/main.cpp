@@ -1,7 +1,7 @@
 /*
  * Backup Emergency Recovery Transmitter
  * HW Version - 3.0
- * FW Version - 1.6
+ * FW Version - 1.7
  * Matthew E. Nelson
  */
 
@@ -233,7 +233,10 @@ void setup() {
   }
   arcada.display->print("SHT30 ");
 
+
+
   /********** Check BMP280 */
+  /*
   Serial.print("Checking BPM280...");
   if (!bmp280.begin()) {
     Serial.println("No BMP280 found");
@@ -247,7 +250,8 @@ void setup() {
   buttons = last_buttons = 0;
   arcada.timerCallback(1000, timercallback);
   arcada.display->setTextWrap(false);
-
+  */
+/*
   Serial.print("Initializing GPS Sensor....");
 
   if (myGNSS.begin() == false)
@@ -272,10 +276,12 @@ void setup() {
     }
     else
     {
+      Serial.println("OK");
       Serial.println(F("Dynamic platform model changed successfully!"));
     }
-
+*/
     // Let's read the new dynamic model to see if it worked
+    /*
     uint8_t newDynamicModel = myGNSS.getDynamicModel();
     if (newDynamicModel == DYN_MODEL_UNKNOWN)
     {
@@ -285,12 +291,13 @@ void setup() {
     {
       Serial.print(F("The new dynamic model is: "));
       Serial.println(newDynamicModel);
+      Serial.print("Saving GPS Config...");
     }
-
+    */
     //myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_NAVCONF); //Uncomment this line to save only the NAV settings to flash and BBR
-    myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
-    Serial.println("OK");
-  }
+    //myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
+    //Serial.println("OK");
+  //}
 
 
   Serial.print("Initializing RockBloc Sat Modem");
