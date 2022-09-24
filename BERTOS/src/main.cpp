@@ -132,15 +132,12 @@ unsigned long lastTime2 = 0; //Simple local timer. Limits amount if I2C traffic 
 
 void setup() {
   Serial.begin(115200);
-  delay(1000);
+  delay(100);
   Serial.println("Backup Emergency Recovery Transmitter (BERT)");
   Serial.println("============================================");
   Serial.println(" HW Rev. 3.0 | FW Rev. 1.7");
   Serial.println("============================================");
-  delay(3000);
-  pinMode(WHITE_LED, OUTPUT);
-  digitalWrite(WHITE_LED, LOW);
-  
+  delay(2000);
   Wire.begin();
   Serial.println("Initializing I2C Bus....OK");
 
@@ -154,33 +151,51 @@ void setup() {
     // Disable the watchdog entirely by calling Watchdog.disable();
     Watchdog.disable();
   #endif 
-  
-  Serial.print("Booting up Arcada...");
+  pinMode(WHITE_LED, OUTPUT);
+  digitalWrite(WHITE_LED, LOW);
   if (!arcada.arcadaBegin()) {
-    Serial.println("Failed to start Arcada!");
-    while (1);
+      Serial.println("Failed to start Arcada!");
+      while (1);
   }
-  Serial.println("OK");
   arcada.displayBegin();
-  Serial.print("Setting up Display...");
 
   for (int i=0; i<250; i+=10) {
-    arcada.setBacklight(i);
-    delay(1);
+      arcada.setBacklight(i);
+      delay(1);
   }
-  Serial.println("OK");
+  arcada.display->setCursor(0, 0);
+  arcada.display->setTextWrap(true);
+  arcada.display->setTextSize(2);
+  arcada.display->setTextColor(ARCADA_GREEN);
+  arcada.display->println("BERTOS Booting up...");
+  arcada.display->println("FW Rev: 1.7");
 
   /********** Setup QSPI Flash Memory */
-  Serial.print("Setting up Filesystem...");
 
   // Initialize flash library and check its chip ID.
-  if (!Arcada_QSPI_Flash.begin()) {
-    Serial.println("Error, failed to initialize flash chip!");
-    while(1);
+    /********** Check QSPI manually */
+  if (!Arcada_QSPI_Flash.begin()){
+    Serial.println("Could not find flash on QSPI bus!");
+    arcada.display->setTextColor(ARCADA_RED);
+    arcada.display->println("QSPI Flash FAIL");
+  } else {
+    uint32_t jedec;
+    jedec = Arcada_QSPI_Flash.getJEDECID();
+    Serial.print("JEDEC ID: 0x"); Serial.println(jedec, HEX);
+    arcada.display->setTextColor(ARCADA_GREEN);
+    arcada.display->print("QSPI JEDEC: 0x"); arcada.display->println(jedec, HEX);
   }
-  Serial.println("Flash chip JEDEC ID: 0x"); Serial.println(Arcada_QSPI_Flash.getJEDECID(), HEX);
-  Serial.print("Mounting Filesystem...");
-
+  
+   /********** Check filesystem next */
+  if (!arcada.filesysBegin()) {
+    Serial.println("Failed to load filesys");
+    arcada.display->setTextColor(ARCADA_YELLOW);
+    arcada.display->println("Filesystem not found");
+  } else {
+    Serial.println("Filesys OK!");
+    arcada.display->setTextColor(ARCADA_GREEN);
+    arcada.display->println("Filesystem OK");
+  }
   // First call begin to mount the filesystem.  Check that it returns true
   // to make sure the filesystem was mounted.
   if (!fatfs.begin(&Arcada_QSPI_Flash)) {
@@ -189,16 +204,8 @@ void setup() {
     while(1);
   }
   Serial.println("Mounted filesystem!");
-
-  arcada.display->setCursor(0, 0);
-  arcada.display->setTextWrap(true);
-  arcada.display->setTextSize(2);
-  arcada.display->setTextColor(ARCADA_GREEN);
-  arcada.display->println("BERTOS Booting...");
-  arcada.display->println("FW Rev: 1.7");
   arcada.display->setTextColor(ARCADA_WHITE);
   arcada.display->println("Sensors Found: ");
-
 
 /********** Check LSM6DS33 */
   Serial.print("Checking LSM6DS33...");
@@ -233,10 +240,8 @@ void setup() {
   }
   arcada.display->print("SHT30 ");
 
-
-
   /********** Check BMP280 */
-  /*
+  
   Serial.print("Checking BPM280...");
   if (!bmp280.begin()) {
     Serial.println("No BMP280 found");
@@ -250,8 +255,8 @@ void setup() {
   buttons = last_buttons = 0;
   arcada.timerCallback(1000, timercallback);
   arcada.display->setTextWrap(false);
-  */
-/*
+  
+
   Serial.print("Initializing GPS Sensor....");
 
   if (myGNSS.begin() == false)
@@ -279,9 +284,9 @@ void setup() {
       Serial.println("OK");
       Serial.println(F("Dynamic platform model changed successfully!"));
     }
-*/
+
     // Let's read the new dynamic model to see if it worked
-    /*
+    
     uint8_t newDynamicModel = myGNSS.getDynamicModel();
     if (newDynamicModel == DYN_MODEL_UNKNOWN)
     {
@@ -293,13 +298,13 @@ void setup() {
       Serial.println(newDynamicModel);
       Serial.print("Saving GPS Config...");
     }
-    */
+    
     //myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_NAVCONF); //Uncomment this line to save only the NAV settings to flash and BBR
-    //myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
-    //Serial.println("OK");
-  //}
+    myGNSS.saveConfigSelective(VAL_CFG_SUBSEC_IOPORT); //Save (only) the communications port settings to flash and BBR
+    Serial.println("OK");
+  }
 
-
+//==========================================================================
   Serial.print("Initializing RockBloc Sat Modem");
   int signalQuality = -1;
   int err;
